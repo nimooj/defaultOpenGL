@@ -23,17 +23,28 @@ void Skinning::segment() {
     tmpJointGroup.push_back(v);
   }
 
+  /*** Finding closest joint does NOT produce perfect segmentation ***/
   for (int i = 0; i < vertices->size(); i++) {
     Vertex closestJoint = (*vertices)[i].closest(tmpJointGroup);
     weightSegment[closestJoint.idx].push_back(i); // Push real vertex index for the benefit of access
   }
+  /****** Only assign group only if two of my neighbors are in the same group ******/
+  /********************************/
 
+  for (int i = 0; i < weightSegment[Joint_shoulderMid].size(); i++ ) {
+    Vertex v = (*vertices)[weightSegment[Joint_shoulderMid][i]];
+    weightSegment[Joint_shoulderR].push_back(weightSegment[Joint_shoulderMid][i]);
+  }
+
+  /*** Filter Joint_shoulderR weight segment***/
   vector<int> tmpW;
-  for (int i = 0; i < weightSegment[Joint_shoulderR].size(); i++ ) {
+  for (int i = 0; i < weightSegment[Joint_shoulderR].size(); i++) {
     Vertex v = (*vertices)[weightSegment[Joint_shoulderR][i]];
-    if (v.x >= (*joints)[Joint_shoulderR].x ) {
-      if ( v.distance((*joints)[Joint_shoulderR]) <= 0 )
-        tmpW.push_back(weightSegment[Joint_shoulderR][i]);
+    
+    if (v.x >= (*joints)[Joint_shoulderR].x - 0.3) {
+      if (v.x < (*joints)[Joint_shoulderMid].x) {
+          tmpW.push_back(weightSegment[Joint_shoulderR][i]);
+      }
     }
     else {
       tmpW.push_back(weightSegment[Joint_shoulderR][i]);
@@ -43,49 +54,36 @@ void Skinning::segment() {
   weightSegment[Joint_shoulderR].clear();
   weightSegment[Joint_shoulderR].insert(weightSegment[Joint_shoulderR].end(), tmpW.begin(), tmpW.end());
 
-
   armRSegment.insert(armRSegment.end(), weightSegment[Joint_shoulderR].begin(), weightSegment[Joint_shoulderR].end());
   armRSegment.insert(armRSegment.end(), weightSegment[Joint_elbowR].begin(), weightSegment[Joint_elbowR].end());
   armRSegment.insert(armRSegment.end(), weightSegment[Joint_wristR].begin(), weightSegment[Joint_wristR].end());
-
-  elbowRSegment.insert(elbowRSegment.end(), weightSegment[Joint_elbowR].begin(), weightSegment[Joint_elbowR].end());
-  elbowRSegment.insert(elbowRSegment.end(), weightSegment[Joint_wristR].begin(), weightSegment[Joint_wristR].end());
-
-  handRSegment.insert(handRSegment.end(), weightSegment[Joint_wristR].begin(), weightSegment[Joint_wristR].end());
 }
 
 void Skinning::paintWeight() {
-  float weightRange = 0.2;
+  float weightRange = 0.3;
 
   /*** Upper Arm R ***/
   for (int i = 0; i < armRSegment.size(); i++) {
     Vertex* v = &(*vertices)[armRSegment[i]];
 
     if (v->x > (*joints)[Joint_shoulderR].x - weightRange) {
-      /*
          if (v->y > (*joints)[Joint_shoulderR].y && v->distance((*joints)[Joint_shoulderR]) < 0.5 ) {
-         v->jointsRelated.push_back(Joint_shoulderR);
-         v->jointWeights.push_back(1);
+           v->jointsRelated.push_back(Joint_shoulderR);
+           v->jointWeights.push_back(1);
          }
          else {
-         float dist = v->distanceToLine((*joints)[Joint_shoulderMid], (*joints)[Joint_shoulderR]);
-         v->jointsRelated.push_back(Joint_shoulderMid);
-         v->jointWeights.push_back(pow(1/dist, 4));
+           float dist = v->distance((*joints)[Joint_shoulderMid]);
+           v->jointsRelated.push_back(Joint_shoulderMid);
+           v->jointWeights.push_back(pow(1/dist, 4));
 
-         dist = v->distanceToLine((*joints)[Joint_shoulderR], (*joints)[Joint_elbowR]);
-         v->jointsRelated.push_back(Joint_shoulderR);
-         v->jointWeights.push_back(pow(1/dist, 4));
+           dist = v->distance((*joints)[Joint_shoulderR]);
+           v->jointsRelated.push_back(Joint_shoulderR);
+           v->jointWeights.push_back(pow(1/dist, 4));
+
+           dist = v->distanceToLine((*joints)[Joint_waist], (*joints)[Joint_shoulderMid]);
+           v->jointsRelated.push_back(Joint_waist);
+           v->jointWeights.push_back(pow(1/dist, 4));
          }
-         */
-      //float dist = v->distanceToLine((*joints)[Joint_shoulderMid], (*joints)[Joint_shoulderR]);
-      float dist = v->distance((*joints)[Joint_shoulderMid]);
-      v->jointsRelated.push_back(Joint_shoulderMid);
-      v->jointWeights.push_back(pow(1/dist, 4));
-
-      //dist = v->distanceToLine((*joints)[Joint_shoulderR], (*joints)[Joint_elbowR]);
-      dist = v->distance((*joints)[Joint_shoulderR]);
-      v->jointsRelated.push_back(Joint_shoulderR);
-      v->jointWeights.push_back(pow(1/dist, 4));
     }
     else {
       v->jointsRelated.push_back(Joint_shoulderR);
@@ -108,32 +106,32 @@ void Skinning::paintWeight() {
 }
 
 void Skinning::rotate(int part, float degree) {
-  float thisRad = -2 * M_PI / 180;
-
+  float thisRad = (degree/100) * M_PI / 180;
   float radian = degree * M_PI/180;
+
+  Vertex pivotJoint = (*joints)[Joint_shoulderMid];
 
   for (int i = 0; i < armRSegment.size(); i++) {
     Vertex* v = &(*vertices)[armRSegment[i]];
 
-    float x = v->x;
-    float y = v->y;
-
     float tmp_x = 0, tmp_y = 0;
+    float x = v->x - pivotJoint.x;;
+    float y = v->y - pivotJoint.y;
+
     for (int j = 0; j < v->jointsRelated.size(); j++) {
       Vertex jt = (*joints)[v->jointsRelated[j]];
 
-      if (v->jointsRelated[j] == 1) { // Shoulder Mid -> no rotation
-        tmp_x += v->jointWeights[j] * (cos(thisRad) * (x - jt.x) - sin(thisRad) * (y - jt.y));
-        tmp_y += v->jointWeights[j] * (sin(thisRad) * (x - jt.x) + cos(thisRad)  * (y - jt.y));
+      if (v->jointsRelated[j] == part) {
+        tmp_x += v->jointWeights[j] * (cos(radian) * (x) - sin(radian) * (y));
+        tmp_y += v->jointWeights[j] * (sin(radian) * (x) + cos(radian) * (y));
       }
-      else if (v->jointsRelated[j] == 2) { // Shoulder R -> use rotation Matrix
-        tmp_x += v->jointWeights[j] * (cos(thisRad + radian) * (x - jt.x) - sin(thisRad + radian) * (y - jt.y));
-        tmp_y += v->jointWeights[j] * (sin(thisRad + radian) * (x - jt.x) + cos(thisRad + radian) * (y - jt.y));
+      else {
+        tmp_x += v->jointWeights[j] * (cos(thisRad) * (x) - sin(thisRad) * (y));
+        tmp_y += v->jointWeights[j] * (sin(thisRad) * (x) + cos(thisRad)  * (y ));
       }
-
     }
 
-    v->x = tmp_x + (*joints)[Joint_shoulderR].x;
-    v->y = tmp_y + (*joints)[Joint_shoulderR].y;
+    v->x = tmp_x + pivotJoint.x;
+    v->y = tmp_y + pivotJoint.y;
   }
 }

@@ -21,4 +21,6 @@ class Human {
     vector<Mesh> meshes;
 
     vector<Vertex> joints;
+
+    void exportToOBJ();
 };

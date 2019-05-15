@@ -83,7 +83,7 @@ int main()
   glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
 
-  glEnable(GL_DEPTH_TEST);
+  glDisable(GL_DEPTH_TEST);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -312,13 +312,21 @@ void keyboardInput() {
   if ( glfwGetKey( window, GLFW_KEY_R ) == GLFW_PRESS ) {
     // Rightt Arm lifting 
     if (posing == 0) {
-      skinning.rotate(Joint_shoulderMid, -50);
+      skinning.rotate(Joint_shoulderR, -40);
       posing = 1;
     }
   }
 
   if ( glfwGetKey( window, GLFW_KEY_L ) == GLFW_PRESS ) {
-    // Left Arm lifting 
+   // Left Arm lifting 
+    if (posing == 1) {
+      skinning.rotate(Joint_shoulderR, 40);
+      posing = 0;
+    }
+  }
+
+  if ( glfwGetKey( window, GLFW_KEY_E ) == GLFW_PRESS ) {
+    human.exportToOBJ();
   }
 }
 

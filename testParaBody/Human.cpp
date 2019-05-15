@@ -104,3 +104,18 @@ Human::Human() {
 Human::~Human() {
 
 }
+
+void Human::exportToOBJ() {
+  ofstream outfile("Result.obj");
+
+  for (int i = 0; i < vertices.size(); i++) {
+    outfile << "v " << vertices[i].x << " " << vertices[i].y << " " << vertices[i].z << endl;
+  }
+  for (int i = 0; i < meshes.size(); i++) {
+    outfile << "f " << meshes[i].index1 << " " << meshes[i].index2 << " " << meshes[i].index3 << endl;
+  }
+
+  outfile.close();
+  cout << "Obj exported." << endl;
+}
+
