@@ -42,6 +42,7 @@ public:
 	Vertex operator*(const float&);
 
 	float distance(Vertex);
+  float distanceToLine(Vertex, Vertex);
 	Vertex closest(vector<Vertex>);
 	Vertex closest(float, float, float, float);
 

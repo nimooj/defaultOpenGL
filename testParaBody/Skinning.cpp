@@ -23,10 +23,10 @@ void Skinning::segment() {
     tmpJointGroup.push_back(v);
   }
 
-	for (int i = 0; i < vertices->size(); i++) {
-		Vertex closestJoint = (*vertices)[i].closest(tmpJointGroup);
-		weightSegment[closestJoint.idx].push_back(i); // Push real vertex index for the benefit of access
-	}
+  for (int i = 0; i < vertices->size(); i++) {
+    Vertex closestJoint = (*vertices)[i].closest(tmpJointGroup);
+    weightSegment[closestJoint.idx].push_back(i); // Push real vertex index for the benefit of access
+  }
 
   vector<int> tmpW;
   for (int i = 0; i < weightSegment[Joint_shoulderR].size(); i++ ) {
@@ -42,6 +42,7 @@ void Skinning::segment() {
 
   weightSegment[Joint_shoulderR].clear();
   weightSegment[Joint_shoulderR].insert(weightSegment[Joint_shoulderR].end(), tmpW.begin(), tmpW.end());
+
 
   armRSegment.insert(armRSegment.end(), weightSegment[Joint_shoulderR].begin(), weightSegment[Joint_shoulderR].end());
   armRSegment.insert(armRSegment.end(), weightSegment[Joint_elbowR].begin(), weightSegment[Joint_elbowR].end());
@@ -61,10 +62,27 @@ void Skinning::paintWeight() {
     Vertex* v = &(*vertices)[armRSegment[i]];
 
     if (v->x > (*joints)[Joint_shoulderR].x - weightRange) {
+      /*
+         if (v->y > (*joints)[Joint_shoulderR].y && v->distance((*joints)[Joint_shoulderR]) < 0.5 ) {
+         v->jointsRelated.push_back(Joint_shoulderR);
+         v->jointWeights.push_back(1);
+         }
+         else {
+         float dist = v->distanceToLine((*joints)[Joint_shoulderMid], (*joints)[Joint_shoulderR]);
+         v->jointsRelated.push_back(Joint_shoulderMid);
+         v->jointWeights.push_back(pow(1/dist, 4));
+
+         dist = v->distanceToLine((*joints)[Joint_shoulderR], (*joints)[Joint_elbowR]);
+         v->jointsRelated.push_back(Joint_shoulderR);
+         v->jointWeights.push_back(pow(1/dist, 4));
+         }
+         */
+      //float dist = v->distanceToLine((*joints)[Joint_shoulderMid], (*joints)[Joint_shoulderR]);
       float dist = v->distance((*joints)[Joint_shoulderMid]);
       v->jointsRelated.push_back(Joint_shoulderMid);
       v->jointWeights.push_back(pow(1/dist, 4));
 
+      //dist = v->distanceToLine((*joints)[Joint_shoulderR], (*joints)[Joint_elbowR]);
       dist = v->distance((*joints)[Joint_shoulderR]);
       v->jointsRelated.push_back(Joint_shoulderR);
       v->jointWeights.push_back(pow(1/dist, 4));
@@ -89,10 +107,9 @@ void Skinning::paintWeight() {
   }
 }
 
-void Skinning::rotate(int part) {
+void Skinning::rotate(int part, float degree) {
   float thisRad = -2 * M_PI / 180;
 
-  float degree = -20;
   float radian = degree * M_PI/180;
 
   for (int i = 0; i < armRSegment.size(); i++) {
@@ -118,6 +135,5 @@ void Skinning::rotate(int part) {
 
     v->x = tmp_x + (*joints)[Joint_shoulderR].x;
     v->y = tmp_y + (*joints)[Joint_shoulderR].y;
-    cout << v->y << endl;
   }
 }

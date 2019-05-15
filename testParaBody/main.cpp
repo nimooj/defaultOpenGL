@@ -26,9 +26,11 @@ GLuint loadShaders(const char*, const char*);
 GLuint vao, light_vao, joint_vao;
 GLuint ebo;
 GLuint bodyShaderProgram;
+
 vector<vec3> position;
 vector<vec3> normal;
 vector<int> indexing;
+vector<vec3> color;
 
 vec3 pos;
 vec3 dir;
@@ -149,11 +151,24 @@ void defineBodyVAO(GLuint& vao) {
   position.clear();
   normal.clear();
   indexing.clear();
-
+  color.clear();
 
   for (int i = 0; i < human.vertices.size(); i++) {
     Vertex bv = &human.vertices[i];
     position.push_back(vec3(bv.x, bv.y, bv.z));
+
+    color.push_back( vec3(1, 1, 1) );
+  }
+
+  for (int i = 0; i < skinning.armRSegment.size(); i++) {
+    color[skinning.armRSegment[i]] = vec3(1, 0, 0);
+
+    if (human.vertices[skinning.armRSegment[i]].jointsRelated.size() != 1) {
+      if (human.vertices[skinning.armRSegment[i]].jointWeights[1] > 0.5)
+        color[skinning.armRSegment[i]] = vec3(1, 1, 0);
+      else if (human.vertices[skinning.armRSegment[i]].jointWeights[1] <= 0.5)
+        color[skinning.armRSegment[i]] = vec3(0, 0, 1);
+    }
   }
 
   for (int i = 0; i < human.normals.size(); i++) {
@@ -191,6 +206,15 @@ void defineBodyVAO(GLuint& vao) {
   glGenBuffers(1, &ebo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexing.size() * sizeof(int), &indexing[0], GL_STATIC_DRAW);
+
+  GLuint color_vbo;
+	glGenBuffers(1, &color_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, color_vbo);
+	glBufferData(GL_ARRAY_BUFFER, color.size() * sizeof(vec3), &color[0], GL_STATIC_DRAW);
+	GLint color_attribute = glGetAttribLocation(bodyShaderProgram, "color");
+	glVertexAttribPointer(color_attribute, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(color_attribute);
+
 
   glBindVertexArray(0);
 }
@@ -288,7 +312,7 @@ void keyboardInput() {
   if ( glfwGetKey( window, GLFW_KEY_R ) == GLFW_PRESS ) {
     // Rightt Arm lifting 
     if (posing == 0) {
-      skinning.rotate(Joint_shoulderMid);
+      skinning.rotate(Joint_shoulderMid, -50);
       posing = 1;
     }
   }
@@ -297,3 +321,4 @@ void keyboardInput() {
     // Left Arm lifting 
   }
 }
+

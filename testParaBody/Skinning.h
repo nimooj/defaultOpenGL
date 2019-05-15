@@ -26,9 +26,10 @@ class Skinning {
 
     void segment();
     void paintWeight();
-    void rotate(int);
+    void rotate(int, float);
 
-  private :
+
+
     vector<int> armRSegment;
     vector<int> elbowRSegment;
     vector<int> handRSegment;

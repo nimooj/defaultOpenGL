@@ -143,6 +143,19 @@ float Vertex::distance(Vertex v) {
 	return sqrt(pow(x - v.x, 2) + pow(y - v.y, 2) + pow(z - v.z, 2));
 }
 
+float Vertex::distanceToLine(Vertex line0, Vertex line1) {
+  Vertex x1 = line0;
+  Vertex x2 = line1;
+  Vertex x2_x1 = x2 - x1;
+  Vertex x1_x0 = x1 - *this;
+  Vertex s = x2_x1.cross(x1_x0);
+  Vertex p = x2_x1;
+
+  float dist = sqrt(pow(s.x, 2) + pow(s.y, 2) + pow(s.z, 2)) / sqrt(pow(p.x, 2) + pow(p.y, 2) + pow(p.z, 2));
+
+  return dist;
+}
+
 Vertex Vertex::closest(vector<Vertex> v) {
 	float min = 100;
 	Vertex closestV;
