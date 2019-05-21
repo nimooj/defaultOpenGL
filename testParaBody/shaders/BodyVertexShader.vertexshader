@@ -1,0 +1,21 @@
+#version 330 core
+
+in vec3 position;
+in vec3 normal;
+in vec3 color;
+
+out vec3 objColor;
+out vec3 fi_pos;
+out vec3 fi_normal;
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+void main() {
+	fi_pos = vec3(model * vec4(position, 1.0));
+	fi_normal = mat3(transpose(inverse(model))) * normal;
+	objColor = color;
+
+	gl_Position = projection * view * model * vec4(position, 1);
+}

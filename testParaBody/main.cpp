@@ -23,14 +23,17 @@ mat4 viewMatrix;
 mat4 modelMatrix;
 /*** OPENGL 3.3 ***/
 GLuint loadShaders(const char*, const char*);
-GLuint vao, light_vao, joint_vao;
-GLuint ebo;
+GLuint vao, joint_vao;
+GLuint ebo, joint_ebo;
 GLuint bodyShaderProgram;
+GLuint jointShaderProgram;
 
 vector<vec3> position;
 vector<vec3> normal;
 vector<int> indexing;
 vector<vec3> color;
+
+vector<int> jointIndex;
 
 vec3 pos;
 vec3 dir;
@@ -38,13 +41,23 @@ vec3 up;
 
 int posing = 0;
 
+vector<vec3> colorArray;
+
 GLuint loadShaders(const char*, const char*);
 void defineBodyVAO(GLuint&);
+void defineJointVAO(GLuint&);
 void keyboardInput();
 
 // Define main function
 int main()
 {
+  for (int i = 0; i < JointNum; i++) {
+    float r = rand() / double(RAND_MAX);
+    float g = rand() / double(RAND_MAX);
+    float b = rand() / double(RAND_MAX);
+    colorArray.push_back(vec3(r, g, b));
+  }
+
   camera = Camera();
 
   human = Human();
@@ -83,8 +96,12 @@ int main()
   glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
 
-  glDisable(GL_DEPTH_TEST);
   glEnable(GL_BLEND);
+  glFrontFace(GL_CCW);
+  glEnable(GL_CULL_FACE);
+  //glCullFace(GL_BACK);
+
+  glDisable(GL_DEPTH_TEST);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   // Event loop
@@ -97,13 +114,18 @@ int main()
     keyboardInput();
     defineBodyVAO(vao);
 
+    glBegin(GL_POINTS);
+    glColor3f(0, 0, 0);
+    glVertex3f(3, 0, 2);
+    glEnd();
+
     pos = camera.cameraPosition;
     dir = camera.cameraFront;
     up = camera.cameraUp;
 
     vec3 color = vec3(1.0f, 1.0f, 0.0f);
     vec3 lightColor = vec3(1, 1, 1);
-    vec3 lightPos = vec3(0.0f, 10.0f, 15.0f);
+    vec3 lightPos = vec3(0.0f, 10.0f, -15.0f);
     vec3 cameraPos = pos;
 
     /*** Draw Body ***/
@@ -133,6 +155,22 @@ int main()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glDrawElements(GL_TRIANGLES, indexing.size(), GL_UNSIGNED_INT, 0);
 
+    //defineJointVAO(joint_vao);
+
+    //glUseProgram(jointShaderProgram);
+    //projectionID = glGetUniformLocation(jointShaderProgram, "projection");
+    //glUniformMatrix4fv(projectionID, 1, GL_FALSE, &projectionMatrix[0][0]);
+    //viewID = glGetUniformLocation(jointShaderProgram, "view");
+    //glUniformMatrix4fv(viewID, 1, GL_FALSE, &viewMatrix[0][0]);
+    //modelID = glGetUniformLocation(jointShaderProgram, "model");
+    //glUniformMatrix4fv(modelID, 1, GL_FALSE, &modelMatrix[0][0]);
+
+    //glPointSize(5);
+    //glBindVertexArray(joint_vao);
+    //glDrawArrays(GL_POINTS, 0, human.joints.size());
+    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, joint_ebo);
+    //glDrawElements(GL_LINES, jointIndex.size(), GL_UNSIGNED_INT, 0);
+
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
@@ -157,17 +195,26 @@ void defineBodyVAO(GLuint& vao) {
     Vertex bv = &human.vertices[i];
     position.push_back(vec3(bv.x, bv.y, bv.z));
 
-    color.push_back( vec3(1, 1, 1) );
+    color.push_back( vec3(0.8, 0.8, 0.8) );
   }
+
+  //for (int i = 0; i < JointNum; i++) {
+    //for (int j = 0; j < skinning.weightSegment[i].size(); j++){
+      //color[skinning.weightSegment[i][j]] = colorArray[i];
+    //}
+  //}
 
   for (int i = 0; i < skinning.armRSegment.size(); i++) {
     color[skinning.armRSegment[i]] = vec3(1, 0, 0);
 
-    if (human.vertices[skinning.armRSegment[i]].jointsRelated.size() != 1) {
-      if (human.vertices[skinning.armRSegment[i]].jointWeights[1] > 0.5)
-        color[skinning.armRSegment[i]] = vec3(1, 1, 0);
-      else if (human.vertices[skinning.armRSegment[i]].jointWeights[1] <= 0.5)
-        color[skinning.armRSegment[i]] = vec3(0, 0, 1);
+    for (int j = 0; j < human.vertices[skinning.armRSegment[i]].jointsRelated.size(); j++) {
+      if (human.vertices[skinning.armRSegment[i]].jointsRelated[j] == Joint_shoulderR) {
+        float weightVal = human.vertices[skinning.armRSegment[i]].jointWeights[j];
+        if (weightVal > 0.5 && weightVal < 1)
+          color[skinning.armRSegment[i]] = vec3(1, 1, 0);
+        else if (weightVal <= 0.5)
+          color[skinning.armRSegment[i]] = vec3(0, 0, 1);
+      }
     }
   }
 
@@ -217,6 +264,90 @@ void defineBodyVAO(GLuint& vao) {
 
 
   glBindVertexArray(0);
+}
+
+void defineJointVAO(GLuint& joint_vao) {
+	glGenVertexArrays(1, &joint_vao);
+	glBindVertexArray(joint_vao);
+
+	jointShaderProgram = loadShaders("shaders/JointVertexShader.vertexshader", "shaders/JointFragmentShader.fragmentshader");
+
+	vector<vec3> joints;
+
+  jointIndex.clear();
+
+	for ( int i = 0; i < human.joints.size(); i++ ) {
+		Vertex v = human.joints[i];
+		joints.push_back(vec3(v.x, v.y, v.z));
+	}
+
+  jointIndex.push_back(0);
+  jointIndex.push_back(1);
+
+  jointIndex.push_back(1);
+  jointIndex.push_back(2);
+
+  jointIndex.push_back(2);
+  jointIndex.push_back(3);
+
+  jointIndex.push_back(3);
+  jointIndex.push_back(4);
+
+  jointIndex.push_back(1);
+  jointIndex.push_back(5);
+
+  jointIndex.push_back(5);
+  jointIndex.push_back(6);
+
+  jointIndex.push_back(6);
+  jointIndex.push_back(7);
+
+  jointIndex.push_back(7);
+  jointIndex.push_back(8);
+
+  jointIndex.push_back(8);
+  jointIndex.push_back(9);
+
+  jointIndex.push_back(9);
+  jointIndex.push_back(10);
+
+  jointIndex.push_back(6);
+  jointIndex.push_back(11);
+
+  jointIndex.push_back(11);
+  jointIndex.push_back(12);
+
+  jointIndex.push_back(12);
+  jointIndex.push_back(13);
+
+  jointIndex.push_back(13);
+  jointIndex.push_back(14);
+
+  jointIndex.push_back(1);
+  jointIndex.push_back(15);
+
+  jointIndex.push_back(15);
+  jointIndex.push_back(16);
+
+  jointIndex.push_back(16);
+  jointIndex.push_back(17);
+
+	if (!joints.empty()) {
+		GLuint position_vbo;
+		glGenBuffers(1, &position_vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, position_vbo);
+		glBufferData(GL_ARRAY_BUFFER, joints.size() * sizeof(vec3), &joints[0], GL_STATIC_DRAW);
+
+		GLint position_attribute = glGetAttribLocation(jointShaderProgram, "position");
+		glVertexAttribPointer(position_attribute, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(position_attribute);
+
+    glGenBuffers(1, &joint_ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, joint_ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, jointIndex.size() * sizeof(int), &jointIndex[0], GL_STATIC_DRAW);
+
+		glBindVertexArray(0);
+	}
 }
 
 GLuint loadShaders(const char* vertexFilePath, const char* fragmentFilePath) {
@@ -295,7 +426,10 @@ GLuint loadShaders(const char* vertexFilePath, const char* fragmentFilePath) {
 	return shaderProgram;
 }
 
+float degree = 0;
+
 void keyboardInput() {
+  float cameraSpeed = 0.05f;
   if (glfwGetKey( window, GLFW_KEY_UP ) == GLFW_PRESS){
     camera.ViewFront();
   }
@@ -303,24 +437,29 @@ void keyboardInput() {
     camera.ViewBack();
   }
   if (glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_PRESS){
-    camera.ViewLeft();
+    //camera.ViewLeft();
+    degree += 10;
+    camera.cameraPosition.x = 10 *cos(degree*M_PI/180);
+    camera.cameraPosition.z = 10 * sin(degree*M_PI/180);
   }
   if (glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_PRESS){
-    camera.ViewRight();
+    degree -= 10;
+    //camera.ViewRight();
+    camera.cameraPosition.x = 10 *cos(degree*M_PI/180);
+    camera.cameraPosition.z = 10 * sin(degree*M_PI/180);
   }
 
   if ( glfwGetKey( window, GLFW_KEY_R ) == GLFW_PRESS ) {
     // Rightt Arm lifting 
     if (posing == 0) {
-      skinning.rotate(Joint_shoulderR, -40);
+      skinning.rotateRA(Joint_shoulderR, -40);
       posing = 1;
     }
   }
-
   if ( glfwGetKey( window, GLFW_KEY_L ) == GLFW_PRESS ) {
-   // Left Arm lifting 
+    // Redo Right Arm
     if (posing == 1) {
-      skinning.rotate(Joint_shoulderR, 40);
+      skinning.rotateRA(Joint_shoulderR, 40);
       posing = 0;
     }
   }
